@@ -2,13 +2,13 @@ from fastapi import FastAPI, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from moviepy.editor import ImageSequenceClip
-import uvicorn
-import os
-import shutil
 from typing import List
+import os
+import uuid
 
 app = FastAPI()
 
+# Configurar CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -17,39 +17,34 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-UPLOAD_FOLDER = "uploaded_images"
-VIDEO_OUTPUT = "output_video.mp4"
-
-# Crear carpeta si no existe
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-
+# Ruta de prueba
 @app.get("/")
-async def root():
+def read_root():
     return {"message": "Welcome to DreamMotion API!"}
 
-@app.post("/generate-video/")
-async def generate_video(files: List[UploadFile] = File(...)):
-    # Limpiar carpeta anterior
-    for f in os.listdir(UPLOAD_FOLDER):
-        os.remove(os.path.join(UPLOAD_FOLDER, f))
+# Ruta para crear el video
+@app.post("/create-video")
+async def create_video(files: List[UploadFile] = File(...)):
+    # Crear carpeta temporal
+    temp_folder = "temp_images"
+    os.makedirs(temp_folder, exist_ok=True)
 
-    image_paths = []
-
-    # Guardar todas las imágenes subidas
+    file_paths = []
     for idx, file in enumerate(files):
-        file_path = os.path.join(UPLOAD_FOLDER, f"{idx}.png")
+        file_path = os.path.join(temp_folder, f"{idx}_{file.filename}")
         with open(file_path, "wb") as f:
             f.write(await file.read())
-        image_paths.append(file_path)
+        file_paths.append(file_path)
 
-    if not image_paths:
-        return {"error": "No se subieron imágenes."}
+    # Crear el video a partir de las imágenes
+    clip = ImageSequenceClip(file_paths, fps=1)
+    output_path = f"video_{uuid.uuid4().hex}.mp4"
+    clip.write_videofile(output_path, codec="libx264", audio=False)
 
-    # Crear video usando moviepy
-    clip = ImageSequenceClip(image_paths, fps=2)  # 2 frames por segundo
-    clip.write_videofile(VIDEO_OUTPUT, codec="libx264", audio=False)
+    # Limpiar las imágenes temporales
+    for path in file_paths:
+        os.remove(path)
+    os.rmdir(temp_folder)
 
-    return FileResponse(VIDEO_OUTPUT, media_type="video/mp4", filename="dreammotion_video.mp4")
-
-if __name__ == "__main__":
-    uvicorn.run("main:app", host="0.0.0.0", port=8000)
+    # Devolver el archivo de video
+    return FileResponse(output_path, media_type="video/mp4", filename="video.mp4")
