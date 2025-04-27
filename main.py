@@ -4,6 +4,7 @@ from fastapi.responses import FileResponse
 from moviepy.editor import ImageSequenceClip
 import uvicorn
 import os
+import shutil
 from typing import List
 
 app = FastAPI()
