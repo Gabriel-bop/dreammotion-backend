@@ -3,3 +3,4 @@ uvicorn
 python-multipart
 ffmpeg-python
 moviepy
+imageio[ffmpeg]
