@@ -17,15 +17,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Ruta de prueba
 @app.get("/")
 def read_root():
     return {"message": "Welcome to DreamMotion API!"}
 
-# Ruta para crear el video
 @app.post("/create-video")
 async def create_video(files: List[UploadFile] = File(...)):
-    # Crear carpeta temporal
     temp_folder = "temp_images"
     os.makedirs(temp_folder, exist_ok=True)
 
@@ -36,15 +33,22 @@ async def create_video(files: List[UploadFile] = File(...)):
             f.write(await file.read())
         file_paths.append(file_path)
 
-    # Crear el video a partir de las imágenes
+    # Crear el video con ImageSequenceClip
     clip = ImageSequenceClip(file_paths, fps=1)
-    output_path = f"video_{uuid.uuid4().hex}.mp4"
-    clip.write_videofile(output_path, codec="libx264", audio=False)
+    
+    output_path = f"video_{uuid.uuid4().hex}.webm"  # Guardamos como .webm que no necesita ffmpeg extra
+    clip.write_videofile(
+        output_path,
+        codec="libvpx",     # Codec compatible sin ffmpeg extra
+        audio=False,
+        verbose=False,
+        logger=None
+    )
 
-    # Limpiar las imágenes temporales
+    # Borrar las imágenes temporales
     for path in file_paths:
         os.remove(path)
     os.rmdir(temp_folder)
 
     # Devolver el archivo de video
-    return FileResponse(output_path, media_type="video/mp4", filename="video.mp4")
+    return FileResponse(output_path, media_type="video/webm", filename="video.webm")
